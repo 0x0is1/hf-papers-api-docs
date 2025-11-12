@@ -1,0 +1,215 @@
+openapi: 3.0.4
+info:
+  title: Hugging Face Papers API
+  version: 0.1.0
+  description: |
+    This OpenAPI specification documents the public endpoints used by the Hugging Face "Daily Papers" feature.
+
+    The API provides access to:
+      - Daily curated papers from arXiv and related repositories
+      - Search capabilities across paper metadata
+      - Detailed metadata for individual papers
+
+    All endpoints are public and require no authentication.  
+    Data is returned in JSON format and may be cached by Hugging Face CDN.
+
+servers:
+  - url: https://huggingface.co
+    description: Hugging Face Production Server
+
+tags:
+  - name: Papers
+    description: Paper search, retrieval, and daily feeds
+
+paths:
+  /api/papers/search:
+    get:
+      summary: Search for research papers
+      description: |
+        Perform a keyword-based search on the paper dataset.
+        Searches titles, abstracts, and author names.
+        Pagination parameters (`limit`, `offset`) are currently ignored.
+      operationId: searchPapers
+      tags:
+        - Papers
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Search keyword or phrase.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Optional limit (ignored).
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Optional offset (ignored).
+      responses:
+        '200':
+          description: Successful response with paper list.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                    example: 23
+                  papers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Paper'
+        '400':
+          description: Missing or invalid query parameter.
+        '500':
+          description: Internal server error.
+
+  /api/papers/{arxiv_id}:
+    get:
+      summary: Retrieve paper metadata by arXiv ID
+      description: Fetch detailed metadata for a single paper.
+      operationId: getPaperById
+      tags:
+        - Papers
+      parameters:
+        - name: arxiv_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The arXiv identifier for the paper.
+      responses:
+        '200':
+          description: Successful response with detailed metadata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperDetail'
+        '404':
+          description: Paper not found.
+        '500':
+          description: Internal server error.
+
+  /api/daily_papers:
+    get:
+      summary: Retrieve daily curated papers
+      description: |
+        Fetch a paginated list of curated papers for a specific date.
+        Supports `page` and `limit` for pagination.
+      operationId: getDailyPapers
+      tags:
+        - Papers
+      parameters:
+        - name: date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+            example: "2025-11-10"
+          description: Date to fetch papers for (YYYY-MM-DD). Empty date field will give today's paper.
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            example: 1
+          description: Page number (starting at 1).
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            example: 5
+          description: Number of results per page.
+      responses:
+        '200':
+          description: Paginated list of daily papers.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  date:
+                    type: string
+                    format: date
+                    example: "2025-11-10"
+                  count:
+                    type: integer
+                    example: 24
+                  next:
+                    type: string
+                    nullable: true
+                    example: "https://huggingface.co/api/daily_papers?date=2025-11-10&page=2&limit=1"
+                  previous:
+                    type: string
+                    nullable: true
+                    example: null
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Paper'
+        '400':
+          description: Invalid or missing date parameter.
+        '500':
+          description: Internal server error.
+
+components:
+  schemas:
+    Paper:
+      type: object
+      required:
+        - arxiv_id
+        - title
+        - authors
+      properties:
+        arxiv_id:
+          type: string
+          example: "2411.04567"
+        title:
+          type: string
+          example: "Adaptive Attention in Transformers"
+        authors:
+          type: array
+          items:
+            type: string
+          example: ["John Smith", "Jane Doe"]
+        summary:
+          type: string
+          example: "We propose a new mechanism for context-aware attention..."
+        published_date:
+          type: string
+          format: date
+          example: "2024-11-05"
+        link:
+          type: string
+          example: "https://huggingface.co/papers/2411.04567"
+
+    PaperDetail:
+      allOf:
+        - $ref: '#/components/schemas/Paper'
+        - type: object
+          properties:
+            pdf_url:
+              type: string
+              example: "https://arxiv.org/pdf/2411.04567.pdf"
+            doi:
+              type: string
+              example: "10.48550/arXiv.2411.04567"
+            categories:
+              type: array
+              items:
+                type: string
+              example: ["cs.CL", "cs.LG"]
+
+security: []
+externalDocs:
+  description: Visit the Hugging Face Papers Portal
+  url: https://huggingface.co/papers
